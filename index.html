@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="フレックス">
+<meta name="theme-color" content="#000000">
+<meta name="format-detection" content="telephone=no">
+<title>フレックス勤務管理</title>
+<style>
+  :root {
+    --bg: #000;
+    --card: #1c1c1e;
+    --card2: #2c2c2e;
+    --sep: #38383a;
+    --text: #fff;
+    --sub: #8e8e93;
+    --green: #30d158;
+    --red: #ff453a;
+    --blue: #0a84ff;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    max-width: 100%; overflow-x: hidden;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    padding: calc(env(safe-area-inset-top) + 16px) calc(env(safe-area-inset-right) + 16px)
+             calc(env(safe-area-inset-bottom) + 32px) calc(env(safe-area-inset-left) + 16px);
+  }
+  .wrap { max-width: 100%; width: 100%; margin: 0 auto; }
+  @media (min-width: 600px) { .wrap { max-width: 520px; } }
+
+  /* Total */
+  .total { text-align: center; padding: 8px 0 20px; }
+  .total .label { color: var(--sub); font-size: 14px; letter-spacing: .05em; }
+  .total .value {
+    font-size: 64px; font-weight: 700; line-height: 1.1;
+    font-variant-numeric: tabular-nums; margin-top: 4px;
+    word-break: break-all;
+  }
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+
+  .card { background: var(--card); border-radius: 16px; padding: 16px; margin-bottom: 16px; max-width: 100%; }
+  .card h2 { margin: 0 0 12px; font-size: 13px; color: var(--sub); font-weight: 600; letter-spacing: .05em; }
+
+  .field { margin-bottom: 14px; }
+  .field > label.t { display: block; font-size: 13px; color: var(--sub); margin-bottom: 6px; }
+
+  input[type="date"], select {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; min-width: 0; max-width: 100%;
+    background: var(--card2); color: var(--text);
+    border: none; border-radius: 10px;
+    padding: 0 12px; height: 44px;
+    font-size: 16px; /* 16px未満だとiOSが自動ズームする */
+    font-family: inherit;
+  }
+  input[type="date"] { display: block; text-align: left; }
+  input[type="date"]::-webkit-date-and-time-value { text-align: left; }
+  select {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%238e8e93' stroke-width='2' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat; background-position: right 12px center;
+    padding-right: 30px;
+  }
+
+  /* Segmented */
+  .seg { display: flex; background: var(--card2); border-radius: 10px; padding: 2px; gap: 2px; }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label {
+    flex: 1; min-width: 0; text-align: center; padding: 10px 2px;
+    font-size: 14px; border-radius: 8px; color: var(--sub); cursor: pointer;
+    white-space: nowrap; transition: background .15s, color .15s;
+  }
+  .seg input:checked + label { background: #636366; color: #fff; font-weight: 600; }
+
+  /* Time pickers */
+  .times { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .tp { display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .tp select { flex: 1; min-width: 0; padding-left: 8px; padding-right: 22px; background-position: right 6px center; text-align: left; }
+  .tp .colon { color: var(--sub); font-weight: 700; }
+
+  .preview {
+    background: var(--card2); border-radius: 10px; padding: 10px 12px;
+    font-size: 13px; color: var(--sub); line-height: 1.6; margin-bottom: 14px;
+  }
+  .preview b { font-size: 17px; font-variant-numeric: tabular-nums; }
+
+  button { font-family: inherit; }
+  .btn-add {
+    width: 100%; height: 50px; border: none; border-radius: 12px;
+    background: var(--blue); color: #fff; font-size: 17px; font-weight: 600;
+  }
+  .btn-add:active { opacity: .7; }
+  .err { color: var(--red); font-size: 13px; text-align: center; margin-top: 10px; min-height: 0; }
+  .err:empty { display: none; }
+  .mh {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 13px; color: var(--sub); font-weight: 600;
+    padding: 14px 0 6px; border-top: 1px solid var(--sep);
+  }
+  .mh:first-child { border-top: none; padding-top: 0; }
+  .mh span:last-child { font-variant-numeric: tabular-nums; }
+  .mh + .item { border-top: none; }
+
+  /* History */
+  .empty { color: var(--sub); text-align: center; padding: 16px 0; font-size: 14px; }
+  .item { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid var(--sep); }
+  .item:first-child { border-top: none; }
+  .item .main { flex: 1; min-width: 0; }
+  .item .date { font-size: 15px; font-weight: 600; }
+  .item .meta { font-size: 12px; color: var(--sub); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .delta { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .del {
+    flex: none; width: 32px; height: 32px; border: none; border-radius: 50%;
+    background: var(--card2); color: var(--red); font-size: 16px; line-height: 1;
+  }
+  .del:active { opacity: .6; }
+
+  .btn-reset {
+    width: 100%; height: 48px; border: none; border-radius: 12px;
+    background: var(--card); color: var(--red); font-size: 16px; font-weight: 600; margin-top: 8px;
+  }
+  .btn-reset:active { opacity: .6; }
+  .note { text-align: center; color: var(--sub); font-size: 11px; margin-top: 12px; }
+
+  /* 確認ダイアログ（confirm()の代わり） */
+  .modal {
+    position: fixed; inset: 0; z-index: 100; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,.6); padding: 24px;
+  }
+  .modal.show { display: flex; }
+  .dialog {
+    width: 100%; max-width: 300px; background: #2c2c2e; border-radius: 14px; overflow: hidden; text-align: center;
+  }
+  .dialog .msg { padding: 20px 16px; font-size: 15px; line-height: 1.5; }
+  .dialog .btns { display: flex; border-top: 1px solid var(--sep); }
+  .dialog button {
+    flex: 1; height: 48px; border: none; background: transparent; font-size: 17px; color: var(--blue);
+  }
+  .dialog button + button { border-left: 1px solid var(--sep); }
+  .dialog button.ok { color: var(--red); font-weight: 600; }
+  .dialog button:active { background: #3a3a3c; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="total">
+    <div class="label" id="totalLabel">今月の累計過不足時間</div>
+    <div class="value pos" id="total">+0:00</div>
+  </div>
+
+  <div class="card">
+    <h2>勤務を記録</h2>
+
+    <div class="field">
+      <label class="t" for="date">日付</label>
+      <input type="date" id="date">
+    </div>
+
+    <div class="field">
+      <label class="t">勤務区分</label>
+      <div class="seg" id="typeSeg">
+        <input type="radio" name="type" id="t_full" value="full" checked><label for="t_full">全日出勤</label>
+        <input type="radio" name="type" id="t_pm" value="pm"><label for="t_pm">午後半休</label>
+        <input type="radio" name="type" id="t_ot" value="ot"><label for="t_ot">時間外対応</label>
+      </div>
+    </div>
+
+    <div class="times">
+      <div class="field">
+        <label class="t">開始時刻</label>
+        <div class="tp">
+          <select id="sh" aria-label="開始 時"></select><span class="colon">:</span><select id="sm" aria-label="開始 分"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label class="t">終了時刻</label>
+        <div class="tp">
+          <select id="eh" aria-label="終了 時"></select><span class="colon">:</span><select id="em" aria-label="終了 分"></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="preview" id="preview"></div>
+
+    <button class="btn-add" id="add">記録する</button>
+    <div class="err" id="err"></div>
+  </div>
+
+  <div class="card">
+    <h2>勤務履歴</h2>
+    <div id="list"></div>
+  </div>
+
+  <button class="btn-reset" id="reset">すべてのデータを初期化</button>
+  <div class="note">データはこの端末のブラウザ内にのみ保存されます</div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="dialog">
+    <div class="msg" id="modalMsg"></div>
+    <div class="btns">
+      <button type="button" id="modalCancel">キャンセル</button>
+      <button type="button" class="ok" id="modalOk">削除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var KEY = 'flexTracker.v1';
+
+  // 区分ごとの設定
+  var TYPES = {
+    full: { name: '全日出勤', base: 480, brk: 60, start: '09:00', end: '18:00' },
+    pm:   { name: '午後半休', base: 240, brk: 30, start: '12:00', end: '16:45' },
+    ot:   { name: '時間外対応', base: 0,   brk: 0,  start: '18:00', end: '19:00' }
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var WD = ['日', '月', '火', '水', '木', '金', '土'];
+
+  /* ---------- Storage ---------- */
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+  function save(arr) {
+    try { localStorage.setItem(KEY, JSON.stringify(arr)); } catch (e) {
+      alert('保存に失敗しました（プライベートブラウズ等では保存できない場合があります）');
+    }
+  }
+
+  /* ---------- Calc ---------- */
+  function toMin(hhmm) { var p = hhmm.split(':'); return (+p[0]) * 60 + (+p[1]); }
+
+  function calc(type, start, end) {
+    var t = TYPES[type];
+    var s = toMin(start), e = toMin(end);
+    if (e < s) e += 1440;               // 日跨ぎ（夜勤など）
+    var stay = e - s;
+    var worked = stay - t.brk;          // 実労働時間
+    var delta = worked - t.base;        // 過不足
+    return { stay: stay, worked: worked, delta: delta, brk: t.brk, base: t.base };
+  }
+
+  function fmtHM(min) {               // 符号なし h:mm
+    var a = Math.abs(min);
+    var h = Math.floor(a / 60), m = a % 60;
+    return h + ':' + (m < 10 ? '0' : '') + m;
+  }
+  function fmtSigned(min) {           // +h:mm / −h:mm
+    return (min < 0 ? '\u2212' : '+') + fmtHM(min);
+  }
+
+  /* ---------- UI setup ---------- */
+  function fillSelects() {
+    var hs = '', ms = '';
+    for (var h = 0; h < 24; h++) hs += '<option value="' + pad(h) + '">' + pad(h) + '</option>';
+    [0, 15, 30, 45].forEach(function (m) { ms += '<option value="' + pad(m) + '">' + pad(m) + '</option>'; });
+    ['sh', 'eh'].forEach(function (id) { $(id).innerHTML = hs; });
+    ['sm', 'em'].forEach(function (id) { $(id).innerHTML = ms; });
+  }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  function todayStr() {
+    var d = new Date();
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+
+  function curType() {
+    return document.querySelector('input[name="type"]:checked').value;
+  }
+  function getStart() { return $('sh').value + ':' + $('sm').value; }
+  function getEnd()   { return $('eh').value + ':' + $('em').value; }
+
+  function setTimes(s, e) {
+    var sp = s.split(':'), ep = e.split(':');
+    $('sh').value = sp[0]; $('sm').value = sp[1];
+    $('eh').value = ep[0]; $('em').value = ep[1];
+  }
+
+  function applyDefaults() {
+    var t = TYPES[curType()];
+    setTimes(t.start, t.end);
+    updatePreview();
+  }
+
+  function updatePreview() {
+    var type = curType();
+    var r = calc(type, getStart(), getEnd());
+    var cls = r.delta < 0 ? 'neg' : 'pos';
+    var brkTxt = r.brk ? '休憩 ' + r.brk + '分を控除' : '休憩の自動控除なし';
+    $('preview').innerHTML =
+      '滞在 ' + fmtHM(r.stay) + '　/　' + brkTxt + '<br>' +
+      '実労働 ' + fmtHM(r.worked) + '　/　基準 ' + fmtHM(r.base) + '<br>' +
+      '過不足 <b class="' + cls + '">' + fmtSigned(r.delta) + '</b>';
+  }
+
+  /* ---------- Render ---------- */
+  function render() {
+    var data = load();
+
+    // 最新の日付が上（同日は新しく追加したものが上）
+    data.sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return b.id - a.id;
+    });
+
+    // 月ごとの小計。トップの累計は「今月」の分だけ（月が変わると自動で0に戻る）
+    var nowMonth = todayStr().slice(0, 7);
+    var monthSum = {};
+    data.forEach(function (it) {
+      var ym = it.date.slice(0, 7);
+      monthSum[ym] = (monthSum[ym] || 0) + calc(it.type, it.start, it.end).delta;
+    });
+    var total = monthSum[nowMonth] || 0;
+
+    $('totalLabel').textContent = (+nowMonth.slice(5, 7)) + '月の累計過不足時間';
+    var tv = $('total');
+    tv.textContent = fmtSigned(total);
+    tv.className = 'value ' + (total < 0 ? 'neg' : 'pos');
+
+    var list = $('list');
+    if (!data.length) {
+      list.innerHTML = '<div class="empty">まだ記録がありません</div>';
+      return;
+    }
+    var html = '';
+    var lastYm = '';
+    data.forEach(function (it) {
+      var ym = it.date.slice(0, 7);
+      if (ym !== lastYm) {
+        lastYm = ym;
+        html += '<div class="mh"><span>' + ym.slice(0, 4) + '年' + (+ym.slice(5, 7)) + '月</span>' +
+                '<span class="' + (monthSum[ym] < 0 ? 'neg' : 'pos') + '">小計 ' + fmtSigned(monthSum[ym]) + '</span></div>';
+      }
+      var t = TYPES[it.type] || TYPES.full;
+      var r = calc(it.type, it.start, it.end);
+      var p = it.date.split('-');
+      var wd = WD[new Date(+p[0], +p[1] - 1, +p[2]).getDay()];
+      var dateLabel = p[0] + '/' + p[1] + '/' + p[2] + '（' + wd + '）';
+      html +=
+        '<div class="item">' +
+          '<div class="main">' +
+            '<div class="date">' + dateLabel + '</div>' +
+            '<div class="meta">' + t.name + '　' + it.start + '〜' + it.end + '　実働' + fmtHM(r.worked) + '</div>' +
+          '</div>' +
+          '<div class="delta ' + (r.delta < 0 ? 'neg' : 'pos') + '">' + fmtSigned(r.delta) + '</div>' +
+          '<button class="del" data-id="' + it.id + '" aria-label="削除">✕</button>' +
+        '</div>';
+    });
+    list.innerHTML = html;
+  }
+
+  /* ---------- 確認ダイアログ ---------- */
+  var pending = null;
+  function ask(msg, okLabel, cb) {
+    pending = cb;
+    $('modalMsg').textContent = msg;
+    $('modalOk').textContent = okLabel;
+    $('modal').classList.add('show');
+  }
+  function closeModal() {
+    pending = null;
+    $('modal').classList.remove('show');
+  }
+
+  /* ---------- Events ---------- */
+  function init() {
+    fillSelects();
+    $('date').value = todayStr();
+    applyDefaults();
+    render();
+
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="type"]'), function (r) {
+      r.addEventListener('change', applyDefaults);
+    });
+    ['sh', 'sm', 'eh', 'em'].forEach(function (id) {
+      $(id).addEventListener('change', updatePreview);
+    });
+    $('date').addEventListener('change', function () { $('err').textContent = ''; });
+
+    $('add').addEventListener('click', function () {
+      var date = $('date').value;
+      var err = $('err');
+      if (!date) { err.textContent = '日付を選択してください'; return; }
+      var data = load();
+      var dup = data.some(function (it) { return it.date === date; });
+      if (dup) {
+        err.textContent = 'この日付はすでに登録されています。履歴の✕で削除してから登録し直してください。';
+        return;
+      }
+      err.textContent = '';
+      data.push({
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        date: date,
+        type: curType(),
+        start: getStart(),
+        end: getEnd()
+      });
+      save(data);
+      render();
+    });
+
+    $('list').addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('.del') : null;
+      if (!btn) return;
+      var id = +btn.getAttribute('data-id');
+      ask('この記録を削除しますか？', '削除', function () {
+        save(load().filter(function (it) { return it.id !== id; }));
+        render();
+      });
+    });
+
+    $('reset').addEventListener('click', function () {
+      ask('すべての履歴と累計を初期化します。元に戻せません。よろしいですか？', '初期化', function () {
+        try { localStorage.removeItem(KEY); } catch (e) {}
+        render();
+      });
+    });
+
+    $('modalCancel').addEventListener('click', closeModal);
+    $('modal').addEventListener('click', function (e) { if (e.target === $('modal')) closeModal(); });
+    $('modalOk').addEventListener('click', function () {
+      var cb = pending; closeModal();
+      if (cb) cb();
+    });
+
+    // 日付をまたいで開きっぱなしの場合に備え、復帰時に「今日」へ更新（未操作時のみ）
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) render();
+    });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
